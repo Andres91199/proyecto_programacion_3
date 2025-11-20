@@ -71,12 +71,19 @@ orden_map = {'Capitalización': 'market_cap_desc', 'Volumen': 'volume_desc'}
 # Llamamos a la función con los parámetros seleccionados
 df = cargar_datos(cantidad_monedas, moneda_map[moneda_base], orden_map[tipo_orden])
 
+# Guardamos cuántas monedas devolvió realmente la API
+monedas_obtenidas = len(df)
+
 # Verificamos que el df no venga vacío antes de seguir
 if df.empty:
     st.warning("No se cargaron datos. Intenta recargar la página.")
     st.stop()
 else:
-    st.sidebar.success("Datos actualizados correctamente")
+    if monedas_obtenidas < cantidad_monedas:
+        st.sidebar.warning(f"La API devolvió solo {monedas_obtenidas} monedas")
+    else:
+        st.sidebar.success("Datos actualizados correctamente")
+    st.sidebar.caption(f"Mostrando {monedas_obtenidas} monedas (índices 0 a {monedas_obtenidas-1})")
 
 # --------------------------------------------------- ////// ---------------------------------------------------
 
@@ -91,10 +98,12 @@ with tab1:
     st.header("Conjunto de Datos")
     
     if st.checkbox("Mostrar tabla de datos completa", value=True):
-        # Mostramos la tabla con las columnas más importantes
+        # Copiamos el DF para numerar las filas desde 1 como en clase
+        df_tabla = df[['name', 'symbol', 'current_price', 'market_cap', 'price_change_percentage_24h']].copy()
+        df_tabla.index = range(1, len(df_tabla) + 1)
         simbolo_moneda = {'usd': '$', 'eur': '€', 'clp': '$'}[moneda_map[moneda_base]]
         st.dataframe(
-            df[['name', 'symbol', 'current_price', 'market_cap', 'price_change_percentage_24h']],
+            df_tabla,
             column_config={
                 "current_price": st.column_config.NumberColumn(f"Precio ({moneda_base})", format=f"{simbolo_moneda}%.2f"),
                 "market_cap": st.column_config.NumberColumn("Market Cap", format=f"{simbolo_moneda}%d"),
