@@ -59,7 +59,8 @@ CoinGecko API (https://www.coingecko.com/api)
 ## Autores
 
 - Alberto (GitHub: @punkyyy01)
-- Tomás
+- Tomás (@cookiecodespy)
+- Andrés Abarca
 
 ## Fecha
 
