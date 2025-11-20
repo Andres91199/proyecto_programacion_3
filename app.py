@@ -17,23 +17,40 @@ st.markdown("Aplicación para analizar el mercado actual utilizando la API de Co
 # --------------------------------------------------- ////// ---------------------------------------------------
 
 # --- 2. BARRA LATERAL ---
-st.sidebar.header("Configuración") # Corregido ortografía
+# Aquí el usuario puede ajustar los parámetros de búsqueda
+st.sidebar.header("Configuración")
 st.sidebar.write("Ajusta los parámetros de la API:")
 
+# Selector de moneda base
+moneda_base = st.sidebar.selectbox(
+    "Moneda base:",
+    ['USD', 'EUR', 'CLP'],
+    help="Selecciona la moneda para ver los precios"
+)
+
+# Tipo de ordenamiento
+tipo_orden = st.sidebar.radio(
+    "Ordenar por:",
+    ['Capitalización', 'Volumen'],
+    help="Criterio de ordenamiento de las criptomonedas"
+)
+
+# Cantidad de monedas a mostrar
 cantidad_monedas = st.sidebar.slider("Cantidad de monedas a analizar", min_value=5, max_value=50, value=10)
 
 # --------------------------------------------------- ////// ---------------------------------------------------
 
-# --- 3. FUNCIÓN DE DATOS (OPTIMIZADA CON CACHÉ) ---
-
-# Usamos @st.cache_data para no llamar a la API cada vez que tocamos un botón
+# --- 3. FUNCIÓN PARA OBTENER DATOS DE LA API ---
+# Esta función trae información de criptomonedas desde CoinGecko
+# Usamos @st.cache_data para no llamar a la API cada vez que cambiamos algo
 @st.cache_data
-def cargar_datos(cantidad):
+def cargar_datos(cantidad, moneda='usd', orden='market_cap_desc'):
     url = "https://api.coingecko.com/api/v3/coins/markets"
+    # Nota: La API usa per_page que cuenta desde 1, no desde 0
     params = {
-        'vs_currency': 'usd',
-        'order': 'market_cap_desc',
-        'per_page': cantidad,
+        'vs_currency': moneda.lower(),
+        'order': orden,
+        'per_page': cantidad,  # La API devuelve exactamente esta cantidad
         'page': 1
     }
     try:
@@ -47,8 +64,12 @@ def cargar_datos(cantidad):
         st.error(f"Error de conexión: {e}")
         return pd.DataFrame()
 
-# Llamamos a la función
-df = cargar_datos(cantidad_monedas)
+# Convertir selecciones del usuario a formato de la API
+moneda_map = {'USD': 'usd', 'EUR': 'eur', 'CLP': 'clp'}
+orden_map = {'Capitalización': 'market_cap_desc', 'Volumen': 'volume_desc'}
+
+# Llamamos a la función con los parámetros seleccionados
+df = cargar_datos(cantidad_monedas, moneda_map[moneda_base], orden_map[tipo_orden])
 
 # Verificamos que el df no venga vacío antes de seguir
 if df.empty:
@@ -60,88 +81,95 @@ else:
 # --------------------------------------------------- ////// ---------------------------------------------------
 
 # --- 4. VISUALIZACIÓN Y ANÁLISIS ---
+# Organizamos la información en pestañas para mejor navegación
 
 tab1, tab2, tab3 = st.tabs(["Datos Crudos", "Gráficos Interactivos", "Conclusiones"])
 
 # --- PESTAÑA 1: DATOS ---
+# Aquí mostramos los datos en formato de tabla
 with tab1:
     st.header("Conjunto de Datos")
     
     if st.checkbox("Mostrar tabla de datos completa", value=True):
-        # Configuramos las columnas para que se vean bonitas (formato numérico)
+        # Mostramos la tabla con las columnas más importantes
+        simbolo_moneda = {'usd': '$', 'eur': '€', 'clp': '$'}[moneda_map[moneda_base]]
         st.dataframe(
             df[['name', 'symbol', 'current_price', 'market_cap', 'price_change_percentage_24h']],
             column_config={
-                "current_price": st.column_config.NumberColumn("Precio (USD)", format="$%.2f"),
-                "market_cap": st.column_config.NumberColumn("Market Cap", format="$%d"),
+                "current_price": st.column_config.NumberColumn(f"Precio ({moneda_base})", format=f"{simbolo_moneda}%.2f"),
+                "market_cap": st.column_config.NumberColumn("Market Cap", format=f"{simbolo_moneda}%d"),
                 "price_change_percentage_24h": st.column_config.NumberColumn("Cambio 24h", format="%.2f%%")
             },
             use_container_width=True
         )
     
+    # Mostramos métricas de la moneda principal
     col1, col2 = st.columns(2)
-    top_coin = df.iloc[0]
-    col1.metric("Moneda Top #1", top_coin['name'], f"${top_coin['current_price']:,.2f}")
-    col2.metric("Cambio 24h (Top 1)", f"{top_coin['price_change_percentage_24h']:.2f}%")
+    moneda_principal = df.iloc[0]
+    simbolo_moneda = {'usd': '$', 'eur': '€', 'clp': '$'}[moneda_map[moneda_base]]
+    col1.metric("Moneda Top #1", moneda_principal['name'], f"{simbolo_moneda}{moneda_principal['current_price']:,.2f}")
+    col2.metric("Cambio 24h (Top 1)", f"{moneda_principal['price_change_percentage_24h']:.2f}%")
 
 # --- PESTAÑA 2: GRÁFICOS ---
+# Aquí mostramos diferentes gráficos para analizar los datos
 with tab2:
     st.header("Análisis Visual")
 
-    # --- Gráfico 1
+    # --- Gráfico 1: Capitalización de Mercado ---
     st.subheader("1. Capitalización de Mercado (Top Monedas)")
-    chart_data_cap = df.set_index('name')['market_cap']
-    st.bar_chart(chart_data_cap)
+    datos_market_cap = df.set_index('name')['market_cap']
+    st.bar_chart(datos_market_cap)
 
-    # --- Gráfico 2
+    # --- Gráfico 2: Dispersión Precio vs Variación ---
     st.subheader("2. Relación Precio vs Variación (24h)")
     st.scatter_chart(df, x='current_price', y='price_change_percentage_24h', color='name')
 
     st.markdown("---")
 
-    # --- Gráfico 3
+    # --- Gráfico 3: Comparación de Rangos de Precio ---
     st.subheader("3. Comparación de Precios (High vs Low 24h)")
 
-    moneda_seleccionadas = st.multiselect(
+    # Permitimos seleccionar qué monedas comparar
+    monedas_seleccionadas = st.multiselect(
         "Selecciona monedas para comparar sus rangos:",
         df['name'].tolist(),
         default=df['name'].iloc[:3].tolist()
     )
 
-    if moneda_seleccionadas:
-        df_filtered = df[df['name'].isin(moneda_seleccionadas)]
-        df_char3 = df_filtered[['name', 'high_24h', 'low_24h']].set_index('name')
-        
-        # ¡FALTABA ESTA LÍNEA! Sin esto, calculabas los datos pero no mostrabas nada.
-        st.bar_chart(df_char3) 
+    if monedas_seleccionadas:
+        df_filtrado = df[df['name'].isin(monedas_seleccionadas)]
+        df_rangos = df_filtrado[['name', 'high_24h', 'low_24h']].set_index('name')
+        st.bar_chart(df_rangos)
     else:
-        st.warning("Selecciona al menos una moneda.")
+        st.warning("Selecciona al menos una moneda para ver el gráfico.")
     
-    # --- Gráfico 4 (Matplotlib) ---
-    st.subheader("4. Distribución de volumen (Top 5)")
+    # --- Gráfico 4: Distribución de Volumen (Gráfico de Torta) ---
+    st.subheader("4. Distribución de Volumen (Top 5)")
     
-    if st.checkbox("Mostrar gráfico de torta (Matplotlib)"):
+    if st.checkbox("Mostrar gráfico de torta"):
+        # Creamos un gráfico circular con matplotlib
         fig, ax = plt.subplots()
         top5 = df.head(5)
-        # Agregué colores y sombra para que se vea menos "plano"
         ax.pie(top5['total_volume'], labels=top5['symbol'].str.upper(), autopct='%1.1f%%', shadow=True, startangle=90)
-        ax.axis('equal') # Para que sea un círculo perfecto
+        ax.axis('equal')
         st.pyplot(fig)
 
 # --- PESTAÑA 3: CONCLUSIONES ---
+# Aquí interpretamos los resultados obtenidos
 with tab3:
     st.header("Interpretación de Resultados")
     
-    # Usamos f-strings para que las conclusiones sean dinámicas según los datos reales
-    top_gainer = df.loc[df['price_change_percentage_24h'].idxmax()]
+    # Encontramos la moneda con mejor rendimiento
+    mejor_moneda = df.loc[df['price_change_percentage_24h'].idxmax()]
     
     st.markdown(f"""
     **Análisis preliminar:**
     
-    1. La moneda con mayor capitalización sigue siendo **{df.iloc[0]['name']}**, lo que indica su dominancia.
-    2. La criptomoneda con mejor rendimiento hoy es **{top_gainer['name']}** con un alza de {top_gainer['price_change_percentage_24h']:.2f}%.
-    3. Se observa una correlación variable entre precio y volatilidad en el gráfico de dispersión.
+    1. La moneda con mayor capitalización es **{df.iloc[0]['name']}**, lo que indica su dominancia en el mercado.
+    2. La criptomoneda con mejor rendimiento en las últimas 24h es **{mejor_moneda['name']}** con un cambio de {mejor_moneda['price_change_percentage_24h']:.2f}%.
+    3. En el gráfico de dispersión se puede observar la relación entre precio y volatilidad de cada criptomoneda.
+    4. El gráfico de torta muestra que las top 5 monedas concentran la mayor parte del volumen de transacciones.
     """)
     
     with st.expander("Ver nota técnica"):
-        st.info("Los datos son obtenidos en tiempo real mediante la API pública de CoinGecko (Plan Gratuito).")
+        st.info("Los datos son obtenidos en tiempo real mediante la API REST de CoinGecko. Se actualiza la información cada vez que se modifican los parámetros.")
