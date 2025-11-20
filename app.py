@@ -1,5 +1,5 @@
 # PRUEBA SOLEMNE N°3
-# INGE B001 TALLER DE PROGRAMACIÓN II - NRC: 3776
+# INGE B001 TALLER DE PROGRAMACIÓN II
 
 # --------------------------------------------------- ////// ---------------------------------------------------
 
@@ -25,4 +25,5 @@ params = {
 }
 
 resp = requests.get(url, params=params)
+
 print(resp)
