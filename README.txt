@@ -1,67 +1,51 @@
-# Dashboard de Criptomonedas
-
+=====================================================
+DASHBOARD DE CRIPTOMONEDAS
+=====================================================
 Proyecto Solemne 3 - Taller de Programación II
-INGE B001 - Universidad San Sebastián
 
-## Descripción
+--- DESCRIPCIÓN ---
 
-Aplicación web interactiva que consume la API REST de CoinGecko para mostrar 
-información actualizada sobre criptomonedas, incluyendo precios, capitalización 
+Aplicación web interactiva (Streamlit) que consume la API REST de CoinGecko para mostrar
+información actualizada sobre criptomonedas, incluyendo precios, capitalización
 de mercado y variaciones en las últimas 24 horas.
 
-## Características
+--- REQUISITOS ---
 
-- Consulta de datos en tiempo real mediante API REST
-- Visualización de datos en tablas interactivas
-- 4 gráficos distintos para análisis visual
-- Filtros configurables (moneda base, tipo de orden, cantidad)
-- Interfaz organizada en pestañas
+* Python: Versión 3.11.x (o superior).
+* Librerías: Listadas en el archivo requirements.txt
 
-## Requisitos
+--- INSTALACIÓN Y CONFIGURACIÓN ---
 
-- Python 3.13 o superior
-- Librerías listadas en requirements.txt
+IMPORTANTE: Todos los comandos a continuación deben ejecutarse en la **TERMINAL**
+o **Línea de Comandos** (CMD/PowerShell en Windows), dentro de la carpeta del proyecto.
 
-## Instalación
+1. CREAR ENTORNO VIRTUAL:
+   Para aislar las dependencias del proyecto:
+   python -m venv venv
 
-1. Asegúrate de tener Python instalado
-2. Instala las dependencias:
+2. ACTIVAR ENTORNO VIRTUAL:
+   - Windows: .\venv\Scripts\activate
+   - macOS/Linux: source venv/bin/activate
 
-pip install -r requirements.txt
+3. INSTALAR DEPENDENCIAS:
+   Con el entorno activado, instala las librerías con sus versiones exactas:
+   pip install -r requirements.txt
 
-## Ejecución
+--- EJECUCIÓN ---
 
-Para ejecutar la aplicación:
+Para iniciar la aplicación:
 
-python -m streamlit run app.py
+streamlit run app.py
 
 La aplicación se abrirá automáticamente en tu navegador en http://localhost:8501
 
-## Uso
+--- USO ---
 
-1. Ajusta los parámetros en la barra lateral:
-   - Selecciona la moneda base (USD, EUR, CLP)
-   - Elige el criterio de ordenamiento
-   - Define la cantidad de criptomonedas a analizar
+1. Ajusta los parámetros en la barra lateral (moneda base, orden, cantidad).
+2. Explora las pestañas ("Datos Crudos", "Gráficos Interactivos", "Conclusiones").
 
-2. Explora las pestañas:
-   - Datos Crudos: Tabla con información detallada
-   - Gráficos Interactivos: Visualizaciones del mercado
-   - Conclusiones: Interpretación de resultados
-
-## API Utilizada
-
+--- API UTILIZADA ---
 CoinGecko API (https://www.coingecko.com/api)
 - Endpoint: /api/v3/coins/markets
 - Método: GET
 - Sin necesidad de autenticación
-
-## Autores
-
-- Alberto (GitHub: @punkyyy01)
-- Tomás (@cookiecodespy)
-- Andrés Abarca
-
-## Fecha
-
-Noviembre 2025
