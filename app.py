@@ -1,184 +1,216 @@
 # PRUEBA SOLEMNE N°3
 # INGE B001 TALLER DE PROGRAMACIÓN II
 
-# --------------------------------------------------- ////// ---------------------------------------------------
-
 import streamlit as st
 import pandas as pd
 import requests
 import matplotlib.pyplot as plt
 
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title='Crypto Dashboard - Solemne 3', layout='wide')
+
+def formato_miles(valor, decimales=2):
+    """Formatea un número usando punto para miles y coma para decimales."""
+    if pd.isna(valor):
+        return "-"
+    texto = f"{valor:,.{decimales}f}"
+    texto = texto.replace(",", "X").replace(".", ",").replace("X", ".")
+    return texto
+
+# Configuración básica de la página
+st.set_page_config(page_title="Dashboard de Criptomonedas", layout="wide")
 
 st.title("Dashboard de Criptomonedas")
 st.markdown("Aplicación para analizar el mercado actual utilizando la API de CoinGecko.")
 
-# --------------------------------------------------- ////// ---------------------------------------------------
-
-# --- 2. BARRA LATERAL ---
-# Aquí el usuario puede ajustar los parámetros de búsqueda
+# ------------------------------------------------------------------
+# Barra lateral: parámetros que puede ajustar el usuario
+# ------------------------------------------------------------------
 st.sidebar.header("Configuración")
-st.sidebar.write("Ajusta los parámetros de la API:")
 
-# Selector de moneda base
 moneda_base = st.sidebar.selectbox(
-    "Moneda base:",
-    ['USD', 'EUR', 'CLP'],
-    help="Selecciona la moneda para ver los precios"
+    "Moneda base",
+    ["USD", "EUR", "CLP"],
+    help="Selecciona la moneda en la que quieres ver los precios."
 )
 
-# Tipo de ordenamiento
 tipo_orden = st.sidebar.radio(
-    "Ordenar por:",
-    ['Capitalización', 'Volumen'],
-    help="Criterio de ordenamiento de las criptomonedas"
+    "Ordenar por",
+    ["Capitalización", "Volumen"],
+    help="Criterio de ordenamiento de las criptomonedas."
 )
 
-# Cantidad de monedas a mostrar
-cantidad_monedas = st.sidebar.slider("Cantidad de monedas a analizar", min_value=5, max_value=50, value=10)
+cantidad_monedas = st.sidebar.slider(
+    "Cantidad de monedas a analizar",
+    min_value=5,
+    max_value=50,
+    value=10
+)
 
-# --------------------------------------------------- ////// ---------------------------------------------------
-
-# --- 3. FUNCIÓN PARA OBTENER DATOS DE LA API ---
-# Esta función trae información de criptomonedas desde CoinGecko
-# Usamos @st.cache_data para no llamar a la API cada vez que cambiamos algo
+# ------------------------------------------------------------------
+# Función para obtener datos desde la API de CoinGecko
+# ------------------------------------------------------------------
 @st.cache_data
-def cargar_datos(cantidad, moneda='usd', orden='market_cap_desc'):
+def cargar_datos(cantidad, moneda="usd", orden="market_cap_desc"):
     url = "https://api.coingecko.com/api/v3/coins/markets"
-    # Nota: La API usa per_page que cuenta desde 1, no desde 0
     params = {
-        'vs_currency': moneda.lower(),
-        'order': orden,
-        'per_page': cantidad,  # La API devuelve exactamente esta cantidad
-        'page': 1
+        "vs_currency": moneda.lower(),
+        "order": orden,
+        "per_page": cantidad,
+        "page": 1
     }
+
     try:
-        resp = requests.get(url, params=params)
-        if resp.status_code == 200:
-            return pd.DataFrame(resp.json())
+        respuesta = requests.get(url, params=params, timeout=10)
+
+        if respuesta.status_code == 200:
+            return pd.DataFrame(respuesta.json())
         else:
-            st.error(f"Error {resp.status_code} en la API")
-            return pd.DataFrame() # Retorna vacío si falla
-    except Exception as e:
-        st.error(f"Error de conexión: {e}")
+            st.error(f"Error {respuesta.status_code} al consultar la API.")
+            return pd.DataFrame()
+
+    except requests.exceptions.Timeout:
+        st.error("La solicitud excedió el tiempo de espera.")
+        return pd.DataFrame()
+    except requests.exceptions.RequestException as e:
+        st.error(f"No se pudo completar la solicitud: {e}")
         return pd.DataFrame()
 
-# Convertir selecciones del usuario a formato de la API
-moneda_map = {'USD': 'usd', 'EUR': 'eur', 'CLP': 'clp'}
-orden_map = {'Capitalización': 'market_cap_desc', 'Volumen': 'volume_desc'}
+# Mapas para traducir las opciones de la interfaz a la API
+moneda_map = {"USD": "usd", "EUR": "eur", "CLP": "clp"}
+orden_map = {"Capitalización": "market_cap_desc", "Volumen": "volume_desc"}
+simbolo_moneda = {"usd": "$", "eur": "€", "clp": "$"}[moneda_map[moneda_base]]
 
-# Llamamos a la función con los parámetros seleccionados
+# Llamamos a la API con los parámetros del usuario
 df = cargar_datos(cantidad_monedas, moneda_map[moneda_base], orden_map[tipo_orden])
 
-# Guardamos cuántas monedas devolvió realmente la API
-monedas_obtenidas = len(df)
-
-# Verificamos que el df no venga vacío antes de seguir
+# Si no llegan datos, se detiene la aplicación
 if df.empty:
     st.warning("No se cargaron datos. Intenta recargar la página.")
     st.stop()
-else:
-    if monedas_obtenidas < cantidad_monedas:
-        st.sidebar.warning(f"La API devolvió solo {monedas_obtenidas} monedas")
-    else:
-        st.sidebar.success("Datos actualizados correctamente")
-    st.sidebar.caption(f"Mostrando {monedas_obtenidas} monedas (índices 0 a {monedas_obtenidas-1})")
 
-# --------------------------------------------------- ////// ---------------------------------------------------
+# ------------------------------------------------------------------
+# Pestañas principales de la aplicación
+# ------------------------------------------------------------------
+tab1, tab2, tab3 = st.tabs(["Datos crudos", "Gráficos interactivos", "Conclusiones"])
 
-# --- 4. VISUALIZACIÓN Y ANÁLISIS ---
-# Organizamos la información en pestañas para mejor navegación
-
-tab1, tab2, tab3 = st.tabs(["Datos Crudos", "Gráficos Interactivos", "Conclusiones"])
-
-# --- PESTAÑA 1: DATOS ---
-# Aquí mostramos los datos en formato de tabla
+# ------------------------------------------------------------------
+# Pestaña 1: datos en tabla
+# ------------------------------------------------------------------
 with tab1:
-    st.header("Conjunto de Datos")
-    
-    if st.checkbox("Mostrar tabla de datos completa", value=True):
-        # Copiamos el DF para numerar las filas desde 1 como en clase
-        df_tabla = df[['name', 'symbol', 'current_price', 'market_cap', 'price_change_percentage_24h']].copy()
-        df_tabla.index = range(1, len(df_tabla) + 1)
-        simbolo_moneda = {'usd': '$', 'eur': '€', 'clp': '$'}[moneda_map[moneda_base]]
-        st.dataframe(
-            df_tabla,
-            column_config={
-                "current_price": st.column_config.NumberColumn(f"Precio ({moneda_base})", format=f"{simbolo_moneda}%.2f"),
-                "market_cap": st.column_config.NumberColumn("Market Cap", format=f"{simbolo_moneda}%d"),
-                "price_change_percentage_24h": st.column_config.NumberColumn("Cambio 24h", format="%.2f%%")
-            },
-            use_container_width=True
-        )
-    
-    # Mostramos métricas de la moneda principal
+    st.header("Conjunto de datos")
+
+    tabla = pd.DataFrame(
+        {
+            "Nombre": df["name"],
+            "Símbolo": df["symbol"].str.upper(),
+            "Precio": df["current_price"].apply(
+                lambda x: f"{simbolo_moneda}{formato_miles(x, 2)}"
+            ),
+            "Capitalización": df["market_cap"].apply(
+                lambda x: f"{simbolo_moneda}{formato_miles(x, 0)}"
+            ),
+            "Volumen 24h": df["total_volume"].apply(
+                lambda x: f"{simbolo_moneda}{formato_miles(x, 0)}"
+            ),
+            "Cambio 24h": df["price_change_percentage_24h"].apply(
+                lambda x: f"{x:.2f}%"
+            ),
+        }
+    )
+    tabla.index = range(1, len(tabla) + 1)
+    st.dataframe(tabla, width='stretch')
+
     col1, col2 = st.columns(2)
     moneda_principal = df.iloc[0]
-    simbolo_moneda = {'usd': '$', 'eur': '€', 'clp': '$'}[moneda_map[moneda_base]]
-    col1.metric("Moneda Top #1", moneda_principal['name'], f"{simbolo_moneda}{moneda_principal['current_price']:,.2f}")
-    col2.metric("Cambio 24h (Top 1)", f"{moneda_principal['price_change_percentage_24h']:.2f}%")
 
-# --- PESTAÑA 2: GRÁFICOS ---
-# Aquí mostramos diferentes gráficos para analizar los datos
+    col1.metric(
+        "Moneda top #1",
+        moneda_principal["name"],
+        f"{simbolo_moneda}{formato_miles(moneda_principal['current_price'], 2)}"
+    )
+    col2.metric(
+        "Cambio 24h (top 1)",
+        f"{moneda_principal['price_change_percentage_24h']:.2f}%"
+    )
+
+# ------------------------------------------------------------------
+# Pestaña 2: gráficos
+# ------------------------------------------------------------------
 with tab2:
-    st.header("Análisis Visual")
+    st.header("Análisis visual")
 
-    # --- Gráfico 1: Capitalización de Mercado ---
-    st.subheader("1. Capitalización de Mercado (Top Monedas)")
-    datos_market_cap = df.set_index('name')['market_cap']
+    # Gráfico 1: capitalización de mercado
+    st.subheader("1. Capitalización de mercado (top monedas)")
+    datos_market_cap = df.set_index("name")["market_cap"]
     st.bar_chart(datos_market_cap)
 
-    # --- Gráfico 2: Dispersión Precio vs Variación ---
-    st.subheader("2. Relación Precio vs Variación (24h)")
-    st.scatter_chart(df, x='current_price', y='price_change_percentage_24h', color='name')
+    # Gráfico 2: precio vs variación
+    st.subheader("2. Relación precio vs variación (24h)")
+    st.scatter_chart(
+        df,
+        x="current_price",
+        y="price_change_percentage_24h",
+        color="name"
+    )
 
     st.markdown("---")
 
-    # --- Gráfico 3: Comparación de Rangos de Precio ---
-    st.subheader("3. Comparación de Precios (High vs Low 24h)")
+    # Gráfico 3: rangos de precio (máximo vs mínimo)
+    st.subheader("3. Comparación de precios (máximo vs mínimo 24h)")
 
-    # Permitimos seleccionar qué monedas comparar
     monedas_seleccionadas = st.multiselect(
         "Selecciona monedas para comparar sus rangos:",
-        df['name'].tolist(),
-        default=df['name'].iloc[:3].tolist()
+        df["name"].tolist(),
+        default=df["name"].iloc[:3].tolist()
     )
 
     if monedas_seleccionadas:
-        df_filtrado = df[df['name'].isin(monedas_seleccionadas)]
-        df_rangos = df_filtrado[['name', 'high_24h', 'low_24h']].set_index('name')
+        df_rangos = (
+            df[df["name"].isin(monedas_seleccionadas)][["name", "high_24h", "low_24h"]]
+            .set_index("name")
+        )
+        df_rangos = df_rangos.rename(
+            columns={"high_24h": "Máximo 24h", "low_24h": "Mínimo 24h"}
+        )
         st.bar_chart(df_rangos)
     else:
-        st.warning("Selecciona al menos una moneda para ver el gráfico.")
-    
-    # --- Gráfico 4: Distribución de Volumen (Gráfico de Torta) ---
-    st.subheader("4. Distribución de Volumen (Top 5)")
-    
+        st.warning("Selecciona al menos una moneda para ver este gráfico.")
+
+    # Gráfico 4: distribución de volumen (top 5)
+    st.subheader("4. Distribución de volumen (top 5)")
+
     if st.checkbox("Mostrar gráfico de torta"):
-        # Creamos un gráfico circular con matplotlib
-        fig, ax = plt.subplots()
         top5 = df.head(5)
-        ax.pie(top5['total_volume'], labels=top5['symbol'].str.upper(), autopct='%1.1f%%', shadow=True, startangle=90)
-        ax.axis('equal')
+        fig, ax = plt.subplots()
+        ax.pie(
+            top5["total_volume"],
+            labels=top5["symbol"].str.upper(),
+            autopct="%1.1f%%",
+            startangle=90
+        )
+        ax.axis("equal")
         st.pyplot(fig)
 
-# --- PESTAÑA 3: CONCLUSIONES ---
-# Aquí interpretamos los resultados obtenidos
+# ------------------------------------------------------------------
+# Pestaña 3: conclusiones
+# ------------------------------------------------------------------
 with tab3:
-    st.header("Interpretación de Resultados")
-    
-    # Encontramos la moneda con mejor rendimiento
-    mejor_moneda = df.loc[df['price_change_percentage_24h'].idxmax()]
-    
-    st.markdown(f"""
-    **Análisis preliminar:**
-    
-    1. La moneda con mayor capitalización es **{df.iloc[0]['name']}**, lo que indica su dominancia en el mercado.
-    2. La criptomoneda con mejor rendimiento en las últimas 24h es **{mejor_moneda['name']}** con un cambio de {mejor_moneda['price_change_percentage_24h']:.2f}%.
-    3. En el gráfico de dispersión se puede observar la relación entre precio y volatilidad de cada criptomoneda.
-    4. El gráfico de torta muestra que las top 5 monedas concentran la mayor parte del volumen de transacciones.
-    """)
-    
-    with st.expander("Ver nota técnica"):
-        st.info("Los datos son obtenidos en tiempo real mediante la API REST de CoinGecko. Se actualiza la información cada vez que se modifican los parámetros.")
+    st.header("Conclusiones")
+
+    mejor_moneda = df.loc[df["price_change_percentage_24h"].idxmax()]
+
+    st.markdown(
+        f"""
+**Análisis preliminar**
+
+1. La moneda con mayor capitalización es **{df.iloc[0]['name']}**, lo que indica su peso en el mercado.
+2. La criptomoneda con mejor rendimiento en las últimas 24h es **{mejor_moneda['name']}** con un cambio de {mejor_moneda['price_change_percentage_24h']:.2f}%.
+3. En el gráfico de dispersión se observa la relación entre precio y variación de cada criptomoneda.
+4. El gráfico de torta muestra que las primeras 5 monedas concentran una parte importante del volumen de transacciones.
+"""
+    )
+
+    with st.expander("Nota técnica"):
+        st.info(
+            "Los datos se obtienen en tiempo real desde la API pública de CoinGecko. "
+            "La información se actualiza cada vez que se modifican los parámetros."
+        )
