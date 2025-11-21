@@ -31,6 +31,7 @@ del sistema o en la Terminal Integrada de **Visual Studio Code (VS Code)**.
 3. INSTALAR DEPENDENCIAS:
    Con el entorno activado, instala las librerías con sus versiones exactas:
    pip install -r requirements.txt
+   (se demora unos minutos, ten paciencia)
 
 --- EJECUCIÓN ---
 
