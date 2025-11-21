@@ -112,7 +112,7 @@ with tab1:
     st.subheader("Tabla de Datos")
     # Mostrar tabla
     st.dataframe(df[['name', 'symbol', 'current_price', 'market_cap', 'total_volume']], use_container_width=True)
-    
+   
     # Botón de descarga [Requisito: Interacción]
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button("Descargar CSV", csv, "datos_crypto.csv", "text/csv")
@@ -120,12 +120,12 @@ with tab1:
 with tab2:
     st.subheader("Visualización")
     c1, c2 = st.columns(2)
-    
+   
     # Gráfico 1: Barras (Streamlit nativo)
     with c1:
         st.caption("1. Capitalización de Mercado")
         st.bar_chart(df.head(10).set_index('name')['market_cap'])
-        
+       
     # Gráfico 2: Dispersión (Streamlit nativo)
     with c2:
         st.caption("2. Precio vs Variación")
