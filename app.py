@@ -10,16 +10,15 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # BLOQUE 1: CONFIGURACIÓN DE ENTORNO Y VISTA
 # -----------------------------------------------------------------------------
-# Inicialización de la configuración global de la aplicación.
-# Se define 'layout="wide"' para maximizar el espacio horizontal disponible,
-# optimizando la visualización de DataFrames extensos y gráficos comparativos.
+# Configuración inicial de la página. 
+# 'layout="wide"' permite utilizar todo el ancho del navegador.
 st.set_page_config(
     page_title='Crypto Lab - Solemne 3', 
     layout='wide',
     initial_sidebar_state="expanded"
 )
 
-# Encabezado principal
+# Título y descripción principal de la aplicación
 st.title("💠 Crypto Lab: Análisis de Mercado")
 st.markdown("Entorno de visualización de activos digitales mediante CoinGecko API.")
 
@@ -28,25 +27,25 @@ st.markdown("Entorno de visualización de activos digitales mediante CoinGecko A
 # -----------------------------------------------------------------------------
 st.sidebar.header("🎛️ Centro de Control")
 
-# Selección de divisa base.
-# Este input actúa como variable de estado para la conversión de precios en la API.
+# Selector para la moneda de conversión (Variable de Estado).
+# Define en qué divisa se mostrarán los precios y volúmenes.
 moneda_base = st.sidebar.selectbox(
     "Divisa de referencia:",
     ['USD', 'EUR', 'CLP'],
     index=0
 )
 
-# Selector de criterio de ordenamiento para la solicitud HTTP.
+# Selector para el criterio de ordenamiento de la API.
 tipo_orden = st.sidebar.radio(
     "Criterio de clasificación:",
     ['Capitalización', 'Volumen']
 )
 
-# Control de volumen de datos.
-# Permite limitar la carga (payload) para reducir latencia en la visualización.
+# Slider numérico para limitar la carga de datos (Payload).
+# Útil para controlar el rendimiento y no exceder límites de la API.
 cantidad_monedas = st.sidebar.slider("Alcance del análisis (N° monedas)", 5, 50, 10)
 
-# Filtro de texto para búsqueda en tiempo real (Case-Insensitive).
+# Input de texto para filtrado en tiempo real.
 filtro_nombre = st.sidebar.text_input("🔭 Rastrear activo específico:")
 
 st.sidebar.markdown("---")
@@ -56,15 +55,19 @@ st.sidebar.caption("📡 Datos sincronizados con CoinGecko")
 # BLOQUE 3: CAPA DE DATOS Y CONEXIÓN API
 # -----------------------------------------------------------------------------
 
-# Implementación de caché mediante decorador @st.cache_data.
-# Objetivo: Evitar llamadas redundantes a la API en cada interacción de la UI,
-# protegiendo la cuota de peticiones (Rate Limiting) y mejorando el rendimiento.
+# Decorador @st.cache_data:
+# Optimiza la aplicación almacenando el resultado de la función en memoria caché.
+# Evita llamar a la API externa cada vez que el usuario interactúa con un filtro local,
+# previniendo el error 429 (Too Many Requests) y mejorando la velocidad de carga.
 @st.cache_data
 def cargar_datos(cantidad, moneda='usd', orden='market_cap_desc'):
+    """
+    Realiza una petición HTTP GET a la API de CoinGecko.
+    Maneja excepciones y códigos de estado HTTP.
+    """
     url = "https://api.coingecko.com/api/v3/coins/markets"
 
-    # Construcción de parámetros para la solicitud GET.
-    # Se utiliza un diccionario para garantizar la correcta codificación de la URL.
+    # Parámetros de la consulta (Query Strings)
     params = {
         'vs_currency': moneda.lower(),
         'order': orden,
@@ -74,45 +77,43 @@ def cargar_datos(cantidad, moneda='usd', orden='market_cap_desc'):
     }
 
     try:
-        # Solicitud con timeout explícito (10s) para prevenir bloqueos indefinidos
-        # en caso de latencia alta o caída del servicio externo.
+        # Timeout de 10 segundos para evitar bloqueos indefinidos si la red falla
         resp = requests.get(url, params=params, timeout=10)
 
         if resp.status_code == 200:
+            # Retorna un DataFrame si la petición fue exitosa
             return pd.DataFrame(resp.json())
         elif resp.status_code == 429:
-            # Manejo específico de error 429 (Too Many Requests).
+            # Manejo específico para límite de tasa de la API
             st.warning("🚧 Tráfico denso en la API (Error 429). Reintentando enlace...")
             return pd.DataFrame()
         else:
-            # Captura de errores de protocolo no críticos (4xx, 5xx).
+            # Manejo de otros errores HTTP (4xx, 5xx)
             st.error(f"🚫 Fallo de protocolo {resp.status_code}")
             return pd.DataFrame()
 
     except Exception as e:
-        # Manejo de excepciones críticas de red (DNS, desconexión, SSL).
+        # Captura de errores de conexión (DNS, SSL, desconexión)
         st.error(f"💀 Error fatal de conexión: {e}")
         return pd.DataFrame()
 
-# Diccionarios de mapeo: Transforman la selección legible del usuario (UI)
-# en parámetros técnicos aceptados por los endpoints de la API (Backend).
+# Mapeo de diccionarios:
+# Traduce las opciones legibles de la UI a parámetros técnicos que la API entiende.
 moneda_map = {'USD': 'usd', 'EUR': 'eur', 'CLP': 'clp'}
 orden_map = {'Capitalización': 'market_cap_desc', 'Volumen': 'volume_desc'}
 simbolo_moneda = {'usd': '$', 'eur': '€', 'clp': '$'}[moneda_map[moneda_base]]
 
-# Ejecución de la carga de datos.
+# Invocación de la función de carga
 df = cargar_datos(cantidad_monedas, moneda_map[moneda_base], orden_map[tipo_orden])
 
-# Validación de integridad:
-# Si el DataFrame está vacío (por error de API o red), se detiene la ejecución
-# mediante st.stop() para prevenir errores en cascada en los bloques visuales.
+# Validación de integridad de datos:
+# Si el DataFrame está vacío, detenemos la ejecución para evitar errores en los gráficos.
 if df.empty:
     st.warning("☁️ No se pudo establecer conexión con la nube de datos.")
     st.stop()
 
-# Lógica de filtrado local:
-# Aplica una máscara booleana sobre el DataFrame buscando coincidencias parciales
-# en las columnas 'name' O 'symbol'.
+# Lógica de filtrado local (Post-Procesamiento):
+# Filtra el DataFrame por nombre o símbolo si el usuario escribió algo.
 if filtro_nombre:
     df = df[df['name'].str.contains(filtro_nombre, case=False) | df['symbol'].str.contains(filtro_nombre, case=False)]
     if df.empty:
@@ -122,23 +123,22 @@ if filtro_nombre:
 # -----------------------------------------------------------------------------
 # BLOQUE 4: DASHBOARD Y VISUALIZACIÓN
 # -----------------------------------------------------------------------------
+# Definición de columnas para métricas clave (KPIs)
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
 
 if not df.empty:
-    # Extracción del activo líder (fila 0) para métricas destacadas.
+    # Selección del activo con mayor ranking actual (fila 0)
     top_coin = df.iloc[0]
 
+    # Visualización de métricas con indicador de variación (delta)
     col_kpi1.metric("🚀 Activo Dominante", top_coin['name'])
     col_kpi2.metric("💳 Cotización", f"{simbolo_moneda}{top_coin['current_price']:,.2f}")
-
-    # Indicador de variación porcentual con color dinámico (delta_color)
-    # gestionado automáticamente por Streamlit según el signo del valor.
     col_kpi3.metric("🌊 Flujo 24h", f"{top_coin['price_change_percentage_24h']:.2f}%", 
                     delta_color="normal" if top_coin['price_change_percentage_24h'] >= 0 else "inverse")
 
 st.markdown("---")
 
-# Estructura de pestañas para segregar vistas: Datos crudos vs. Gráficos vs. Análisis.
+# Creación de pestañas para organizar la información visualmente
 tab1, tab2, tab3 = st.tabs(["🗃️ Bóveda de Datos", "📡 Radar Visual", "🧭 Hallazgos"])
 
 # -----------------------------------------------------------------------------
@@ -149,9 +149,7 @@ with tab1:
 
     cols_to_show = ['image', 'name', 'symbol', 'current_price', 'market_cap', 'total_volume', 'price_change_percentage_24h']
 
-    # Renderizado de tabla interactiva.
-    # Se utiliza column_config para formatear datos crudos (imágenes, monedas, porcentajes)
-    # directamente en la vista sin alterar los tipos de datos subyacentes en el DataFrame.
+    # st.dataframe con column_config para formateo avanzado (imágenes y números)
     st.dataframe(
         df[cols_to_show],
         column_config={
@@ -167,7 +165,7 @@ with tab1:
         hide_index=True
     )
 
-    # Serialización a CSV para funcionalidad de descarga.
+    # Funcionalidad de exportación a CSV
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button("💿 Exportar Dataset (CSV)", csv, 'crypto_lab_data.csv', 'text/csv')
 
@@ -181,31 +179,53 @@ with tab2:
     
     with col_g1:
         st.subheader("Dominio de Capitalización")
-        # Gráfico de barras simple utilizando el índice del DataFrame ('name') como eje X.
+        # Gráfico de barras nativo de Streamlit.
+        # Se indexa por nombre para que el eje X muestre las etiquetas correctas.
         st.bar_chart(df.head(10).set_index('name')['market_cap'])
 
     with col_g2:
         st.subheader("Correlación Precio / Volatilidad")
         criterio_color = st.toggle("🖌️ Pigmentar por Dimensión (Cap)", value=True)
-        color_chart = 'market_cap' if criterio_color else None
+        
+        # PRE-PROCESAMIENTO PARA GRÁFICOS:
+        # Se renombra las columnas del DataFrame temporalmente para que los tooltips
+        # y ejes de los gráficos muestren etiquetas profesionales en español
+        # en lugar de los nombres técnicos de las variables (e.g., 'Precio Actual' vs 'current_price').
+        df_scatter = df.rename(columns={
+            'current_price': 'Precio Actual',
+            'price_change_percentage_24h': 'Variación 24h (%)',
+            'market_cap': 'Capitalización'
+        })
+        
+        # Lógica condicional para el coloreado del gráfico
+        color_chart = 'Capitalización' if criterio_color else None
 
-        # Diagrama de dispersión multivariable (Bubble Chart).
-        # Relaciona Precio (X), Variación (Y) y Capitalización (Tamaño/Color).
-        st.scatter_chart(df, x='current_price', y='price_change_percentage_24h', color=color_chart, size='market_cap')
+        # Gráfico de dispersión (Scatter Chart) con los nuevos nombres de columnas
+        st.scatter_chart(
+            df_scatter, 
+            x='Precio Actual', 
+            y='Variación 24h (%)', 
+            color=color_chart, 
+            size='Capitalización'
+        )
 
     # Visualización de Rangos (High/Low).
-    # Permite comparar la volatilidad intra-día de activos seleccionados.
     st.subheader("Amplitud Térmica (Máx vs Mín 24h)")
     monedas_default = df['name'].iloc[:3].tolist()
     seleccion = st.multiselect("Comparativa de activos:", df['name'].tolist(), default=monedas_default)
 
     if seleccion:
+        # Filtramos datos y renombramos columnas para la visualización correcta en la leyenda
         df_r = df[df['name'].isin(seleccion)].set_index('name')[['low_24h', 'high_24h']]
+        df_r = df_r.rename(columns={'low_24h': 'Mínimo 24h', 'high_24h': 'Máximo 24h'})
+        
         st.bar_chart(df_r)
 
     st.markdown("---")
 
     # Integración Avanzada con Matplotlib (Donut Chart).
+    # Se utiliza Matplotlib para crear gráficos circulares personalizados que
+    # Streamlit no soporta nativamente con este nivel de detalle.
     st.subheader("Participación de Volumen (Top 5)")
 
     col_chart, col_txt = st.columns([2, 1])
@@ -213,20 +233,19 @@ with tab2:
     with col_chart:
         top5 = df.head(5).copy()
 
-        # Función auxiliar para limpieza visual: oculta etiquetas en segmentos menores al 5%.
+        # Función lambda auxiliar para ocultar porcentajes pequeños y limpiar el gráfico
         def mostrar_valor(pct):
             return f'{pct:.1f}%' if pct > 5 else ''
 
         fig, ax = plt.subplots(figsize=(6, 6))
 
-        # Configuración de transparencia (alpha=0) para compatibilidad visual
-        # con los temas Claro/Oscuro nativos de Streamlit.
+        # Configuración de fondo transparente para integración con modo claro/oscuro
         fig.patch.set_alpha(0.0) 
         ax.patch.set_alpha(0.0)
 
         colors = plt.cm.Set3(np.linspace(0, 1, len(top5)))
 
-        # Creación del gráfico de anillo mediante la propiedad 'wedgeprops'.
+        # Renderizado del gráfico de anillo (Pie Chart con wedgeprops)
         wedges, texts, autotexts = ax.pie(
             top5['total_volume'], 
             labels=None,            
@@ -237,10 +256,11 @@ with tab2:
             wedgeprops=dict(width=0.5, edgecolor='white')
         )
 
+        # Estilización de etiquetas internas y centrales
         plt.setp(autotexts, size=10, weight="bold", color="black")
         ax.text(0, 0, 'VOLUMEN\nTOTAL', ha='center', va='center', fontsize=10, fontweight='bold')
 
-        # Leyenda externa calculada manualmente para mostrar proporciones exactas.
+        # Cálculo de leyenda externa personalizada
         total = top5['total_volume'].sum()
         etiquetas_leyenda = [f"{row['name']} ({(row['total_volume']/total)*100:.1f}%)" for index, row in top5.iterrows()]
 
@@ -249,6 +269,7 @@ with tab2:
                   loc="center left",
                   bbox_to_anchor=(1, 0, 0.5, 1))
 
+        # Despliegue del objeto figura de Matplotlib en Streamlit
         st.pyplot(fig)
 
     with col_txt:
@@ -256,7 +277,7 @@ with tab2:
         **Interpretación del Radar:**
 
         Este diagrama de anillo ilustra la liquidez relativa entre los activos dominantes.
-
+        
         *Renderizado vía motor Matplotlib.*
         """)
 
@@ -265,8 +286,8 @@ with tab2:
 # -----------------------------------------------------------------------------
 with tab3:
     st.header("Síntesis de Inteligencia")
-    # Identificación de extremos (máximos y mínimos) en la variación diaria
-    # utilizando métodos vectorizados de Pandas (idxmax/idxmin).
+    
+    # Análisis descriptivo automático: Detección de extremos
     mejor = df.loc[df['price_change_percentage_24h'].idxmax()]
     peor = df.loc[df['price_change_percentage_24h'].idxmin()]
 
