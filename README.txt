@@ -1,42 +1,56 @@
-# Dashboard de Criptomonedas
-# Dashboard de criptomonedas
+=====================================================
+DASHBOARD DE CRIPTOMONEDAS
+=====================================================
+Proyecto Solemne 3 - Taller de Programación II
 
-Proyecto Solemne 3 - Taller de Programación II (INGE B001)
+--- DESCRIPCIÓN ---
 
-## Resumen
+Aplicación web interactiva (Streamlit) que consume la API REST de CoinGecko para mostrar
+información actualizada sobre criptomonedas, incluyendo precios, capitalización
+de mercado y variaciones en las últimas 24 horas.
 
-Aplicación en Streamlit que consulta la API pública de CoinGecko mediante `requests`, organiza los resultados con pandas y los muestra en una tabla simple, cuatro gráficos básicos y dos métricas. Todo el contenido se presenta en español para mantener una documentación consistente.
+--- REQUISITOS ---
 
-## Requisitos
+* Python: Versión 3.11.x (o superior).
+* Librerías: Listadas en el archivo requirements.txt
 
-1. Python 3.13 o superior.
-2. Dependencias listadas en `requirements.txt`.
+--- INSTALACIÓN Y CONFIGURACIÓN ---
 
-```
-pip install -r requirements.txt
-```
+IMPORTANTE: Todos los comandos a continuación deben ejecutarse en la **TERMINAL**
+del sistema o en la Terminal Integrada de **Visual Studio Code (VS Code)**.
 
-## Ejecución
+1. Abrir la Terminal en VS Code:
+   Usa el atajo Ctrl + Shift + P (o Ctrl + `) o ve a Menú > Terminal > New Terminal.
+   Asegúrate de que la terminal esté en la carpeta raíz del proyecto.
 
-```
-python -m streamlit run app.py
-```
+2. CREAR ENTORNO VIRTUAL:
+   Para aislar las dependencias del proyecto:
+   python -m venv venv
 
-La aplicación se abre en `http://localhost:8501`. Desde la barra lateral puedes cambiar la moneda base (USD/EUR/CLP), el tipo de orden (capitalización o volumen) y la cantidad de monedas consultadas.
+3. ACTIVAR ENTORNO VIRTUAL:
+   - Windows (PowerShell/CMD): .\venv\Scripts\activate
+   - macOS/Linux: source venv/bin/activate
+   (En VS Code, a menudo es suficiente con reiniciar la terminal después de crear el venv).
 
-## Visualización
+4. INSTALAR DEPENDENCIAS:
+   Con el entorno activado, instala las librerías con sus versiones exactas:
+   pip install -r requirements.txt
 
-- Tabla principal con separador de miles en los valores monetarios.
-- Gráficos nativos de Streamlit: barras de capitalización, dispersión precio vs variación, barra de rangos alto/bajo y torta con el volumen de las 5 primeras monedas.
-- Métrica con la moneda líder y su variación diaria.
+--- EJECUCIÓN ---
 
-## Cambios recientes
+Para iniciar la aplicación:
 
-- Tabla y métricas ahora muestran separadores de miles para evitar confusiones.
-- README resumido y unificado en español.
+streamlit run app.py
 
-## Autores
+La aplicación se abrirá automáticamente en tu navegador en http://localhost:8501
 
-- Alberto (@punkyyy01)
-- Tomás (@cookiecodespy)
-- Andrés Abarca
+--- USO ---
+
+1. Ajusta los parámetros en la barra lateral (moneda base, orden, cantidad).
+2. Explora las pestañas ("Datos Crudos", "Gráficos Interactivos", "Conclusiones").
+
+--- API UTILIZADA ---
+CoinGecko API (https://www.coingecko.com/api)
+- Endpoint: /api/v3/coins/markets
+- Método: GET
+- Sin necesidad de autenticación
