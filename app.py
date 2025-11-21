@@ -41,7 +41,7 @@ tipo_orden = st.sidebar.radio(
     ['Capitalización', 'Volumen']
 )
 
-# Slider numérico para limitar la carga de datos (Payload).
+# Slider numérico para limitar la carga de datos (carga útil).
 # Útil para controlar el rendimiento y no exceder límites de la API.
 cantidad_monedas = st.sidebar.slider("Alcance del análisis (N° monedas)", 5, 50, 10)
 
@@ -67,7 +67,7 @@ def cargar_datos(cantidad, moneda='usd', orden='market_cap_desc'):
     """
     url = "https://api.coingecko.com/api/v3/coins/markets"
 
-    # Parámetros de la consulta (Query Strings)
+    # Parámetros de la consulta (cadenas de consulta)
     params = {
         'vs_currency': moneda.lower(),
         'order': orden,
@@ -98,7 +98,7 @@ def cargar_datos(cantidad, moneda='usd', orden='market_cap_desc'):
         return pd.DataFrame()
 
 # Mapeo de diccionarios:
-# Traduce las opciones legibles de la UI a parámetros técnicos que la API entiende.
+# Traduce las opciones legibles de la interfaz a parámetros técnicos que la API entiende.
 moneda_map = {'USD': 'usd', 'EUR': 'eur', 'CLP': 'clp'}
 orden_map = {'Capitalización': 'market_cap_desc', 'Volumen': 'volume_desc'}
 simbolo_moneda = {'usd': '$', 'eur': '€', 'clp': '$'}[moneda_map[moneda_base]]
@@ -112,7 +112,7 @@ if df.empty:
     st.warning("☁️ No se pudo establecer conexión con la nube de datos.")
     st.stop()
 
-# Lógica de filtrado local (Post-Procesamiento):
+# Lógica de filtrado local (posprocesamiento):
 # Filtra el DataFrame por nombre o símbolo si el usuario escribió algo.
 if filtro_nombre:
     df = df[df['name'].str.contains(filtro_nombre, case=False) | df['symbol'].str.contains(filtro_nombre, case=False)]
@@ -123,7 +123,7 @@ if filtro_nombre:
 # -----------------------------------------------------------------------------
 # BLOQUE 4: DASHBOARD Y VISUALIZACIÓN
 # -----------------------------------------------------------------------------
-# Definición de columnas para métricas clave (KPIs)
+# Definición de columnas para métricas clave (indicadores clave de rendimiento)
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
 
 if not df.empty:
@@ -187,10 +187,10 @@ with tab2:
         st.subheader("Correlación Precio / Volatilidad")
         criterio_color = st.toggle("🖌️ Pigmentar por Dimensión (Cap)", value=True)
         
-        # PRE-PROCESAMIENTO PARA GRÁFICOS:
-        # Se renombra las columnas del DataFrame temporalmente para que los tooltips
+        # Preprocesamiento para gráficos:
+        # Se renombran las columnas del DataFrame temporalmente para que los tooltips
         # y ejes de los gráficos muestren etiquetas profesionales en español
-        # en lugar de los nombres técnicos de las variables (e.g., 'Precio Actual' vs 'current_price').
+        # en lugar de los nombres técnicos de las variables (ejemplo: 'Precio Actual' vs 'current_price').
         df_scatter = df.rename(columns={
             'current_price': 'Precio Actual',
             'price_change_percentage_24h': 'Variación 24h (%)',
@@ -209,7 +209,7 @@ with tab2:
             size='Capitalización'
         )
 
-    # Visualización de Rangos (High/Low).
+    # Visualización de rangos (máximo y mínimo).
     st.subheader("Amplitud Térmica (Máx vs Mín 24h)")
     monedas_default = df['name'].iloc[:3].tolist()
     seleccion = st.multiselect("Comparativa de activos:", df['name'].tolist(), default=monedas_default)
@@ -223,7 +223,7 @@ with tab2:
 
     st.markdown("---")
 
-    # Integración Avanzada con Matplotlib (Donut Chart).
+    # Integración avanzada con Matplotlib (gráfico de anillo).
     # Se utiliza Matplotlib para crear gráficos circulares personalizados que
     # Streamlit no soporta nativamente con este nivel de detalle.
     st.subheader("Participación de Volumen (Top 5)")
@@ -245,7 +245,7 @@ with tab2:
 
         colors = plt.cm.Set3(np.linspace(0, 1, len(top5)))
 
-        # Renderizado del gráfico de anillo (Pie Chart con wedgeprops)
+        # Renderizado del gráfico de anillo (gráfico circular con wedgeprops)
         wedges, texts, autotexts = ax.pie(
             top5['total_volume'], 
             labels=None,            
